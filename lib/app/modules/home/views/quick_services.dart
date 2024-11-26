@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../data/models/contact.dart';
 import '../controllers/auth_controller.dart';
-import '../controllers/shedule_transfert.dart';
+import 'planifie/transerfert_planifie.dart';
 import 'transfert/contacts_list.dart';
 import 'transfert/transfert_multiple.dart';
 import 'transfert/transfert_planifie.dart';
@@ -61,7 +61,7 @@ class QuickServices extends StatelessWidget {
         break;
       case 'scheduled_transfer':
         // Fonctionnalité à implémenter
-        Get.to(() =>  PlannedTransferPage());
+        Get.to(() =>  TransfertPlanifiePage());
 
         break;
       case 'recharge':

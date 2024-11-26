@@ -21,28 +21,34 @@ class Transactions {
     required this.destinataire,
     this.emetteur,
     this.reference,
-
     required this.status,
     this.operateur,
   });
 
   factory Transactions.fromMap(Map<String, dynamic> map) {
-    return Transactions(
-      id: map['id'] ?? '',
-      montant: (map['montant'] ?? 0.0).toDouble(),
-      type: map['type'] ?? '',
-      description: map['description'] ?? '',
-      date: (map['date'] as Timestamp).toDate(), // Conversion Timestamp -> DateTime
-      destinataire: map['destinataire'] ?? '',
-      emetteur: map['emetteur'],
-      status: map['status'] ?? 'en_attente',
-      operateur: map['operateur'],
+    // Gestion sécurisée de la conversion du montant
+    double parseMontant(dynamic value) {
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? 0.0;
+      return 0.1;
+    }
 
-      reference: map['reference'],
+    return Transactions(
+      id: map['id']?.toString() ?? '',
+      montant: parseMontant(map['montant'] ),
+      type: map['type']?.toString() ?? '',
+      description: map['description']?.toString() ?? '',
+      date: map['date'] is Timestamp 
+          ? (map['date'] as Timestamp).toDate()
+          : DateTime.now(),
+      destinataire: map['destinataire']?.toString() ?? '',
+      emetteur: map['emetteur']?.toString(),
+      status: map['status']?.toString() ?? 'en_attente',
+      operateur: map['operateur']?.toString(),
+      reference: map['reference']?.toString(),
     );
   }
-
-  get total => null;
 
   Map<String, dynamic> toMap() {
     return {
@@ -50,7 +56,7 @@ class Transactions {
       'montant': montant,
       'type': type,
       'description': description,
-      'date': date,
+      'date': Timestamp.fromDate(date),
       'emetteur': emetteur,
       'destinataire': destinataire,
       'status': status,

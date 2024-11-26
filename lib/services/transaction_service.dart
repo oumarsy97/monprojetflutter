@@ -1,15 +1,57 @@
 // services/transaction_service.dart
 // ignore_for_file: unused_local_variable, avoid_print
 
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 
+import '../app/data/models/planification.dart';
 import '../app/data/models/transaction.dart';
 import '../app/modules/home/controllers/auth_controller.dart';
 
 class TransactionService extends GetxService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final AuthController _authController = Get.find<AuthController>();
+
+Future<List<Transactions>> getTransactionsProgrammees() async {
+  String? telephone = _authController.currentUser.value?.telephone;
+  try {
+    if (telephone == null) {
+      throw Exception("Numéro de téléphone non disponible");
+    }
+
+    final allTransactions = await _firestore
+        .collection('planifications')
+        .where('emetteur', isEqualTo: telephone)
+        .get();
+    
+  
+
+  
+
+    List<Transactions> transactions = [
+      ...allTransactions.docs.map((doc) {
+        // Conversion explicite des données
+        var data = doc.data();
+        data['id'] = doc.id;
+        return Transactions.fromMap(data);
+      }).toList(),
+    ];
+
+    return transactions;
+  } catch (e) {
+    print("Erreur lors du chargement des transactions: $e");
+    return [];
+  }
+}
+Future<void> addTransactionprogrammes(Map<String, dynamic> transaction) async {
+  try {
+    await _firestore.collection('planifications').add(transaction);
+  } catch (e) {
+    print("Erreur lors de la mise à jour de la transaction: $e");
+  }
+  
+}
 
   Future<List<Transactions>> getLastTransactions({
     
@@ -26,7 +68,9 @@ class TransactionService extends GetxService {
           .collection('transactions')
           .where('emetteur', isEqualTo: telephone)
           .get();
-
+      
+     //affichér les transactions 
+     
       final receivedTransactions = await _firestore
           .collection('transactions')
           .where('destinataire', isEqualTo: telephone)
@@ -58,11 +102,10 @@ class TransactionService extends GetxService {
       // Limiter le nombre de résultats
       return transactions.take(limit).toList();
     } catch (e) {
-      print('Erreur lors de la récupération des transactions: $e');
+      print('Erreur lors de la récupération des transactionss: $e');
       return [];
     }
   }
-
 
   Future<void> addTransaction(Map<String, dynamic> transaction) async {
     try {
@@ -209,6 +252,54 @@ class TransactionService extends GetxService {
   cancelTransaction(reference) {
     _firestore.collection('transactions').doc(reference).update({'status': 'annulee'});
     //
+  }
+
+
+ 
+  // Récupérer les planifications
+  Stream<List<Planification>> getPlanifiedTransfers() {
+    String? telephone = _authController.currentUser.value?.telephone;
+    try {
+      return _firestore
+          .collection('planifications')
+          .where('emetteur_telephone', isEqualTo: telephone)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => Planification.fromJson({
+                    ...doc.data(),
+                    'id': doc.id,
+                  }))
+              .toList());
+    } catch (e) {
+      print("Erreur lors de la récupération des planifications: $e");
+      throw Exception('Erreur lors de la récupération des planifications: $e');
+    }
+  }
+
+   // Mettre à jour une planification
+  Future<void> updatePlanifiedTransfer(String transferId, Planification planification) async {
+    try {
+      await _firestore
+          .collection('planifications')
+          .doc(transferId)
+          .update(planification.toJson());
+    } catch (e) {
+      print("Erreur lors de la mise à jour de la planification: $e");
+      throw Exception('Erreur lors de la mise à jour de la planification: $e');
+    }
+  }
+
+  // Supprimer une planification
+  Future<void> deletePlanifiedTransfer(String transferId) async {
+    try {
+      await _firestore
+          .collection('planifications')
+          .doc(transferId)
+          .delete();
+    } catch (e) {
+      print("Erreur lors de la suppression de la planification: $e");
+      throw Exception('Erreur lors de la suppression de la planification: $e');
+    }
   }
 
 }

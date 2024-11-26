@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import '../../../../services/auth_service.dart';
 import '../../../../services/transaction_service.dart';
 import '../../../data/models/Compte.dart';
+import 'inscription_google.dart';
 
 class AuthController extends GetxController  {
   
@@ -65,17 +66,24 @@ class AuthController extends GetxController  {
     }
   }
 
-  Future<bool> loginWithGoogle() async {
-    Compte? compte = await _authService.connexionAvecGoogle();
-    if (compte != null) {
-      currentUser.value = compte;
-      await refreshUserData();
-      
-      return true;
-      }
-    
+  // Modification de votre méthode de connexion existante
+Future<bool> loginWithGoogle() async {
+  Compte? compte = await _authService.connexionAvecGoogle();
+
+  
+  if (compte != null) {
+    currentUser.value = compte;
+    await refreshUserData();
+    return true;
+  } else {
+    // Si l'utilisateur n'existe pas, afficher le formulaire d'inscription
+    // Get.to(() => InscriptionFormulaire(
+    //   nomPreRempli: compte?.nom,
+    //   prenomPreRempli: compte?.prenom
+    // ));
     return false;
   }
+}
 
 Future<bool> connexionParTelephone(String telephone) async {
   try {
@@ -83,7 +91,7 @@ Future<bool> connexionParTelephone(String telephone) async {
     error.value = '';
 
     // Formatage du numéro de téléphone (ajustez selon vos besoins)
-    String phoneNumber = '+225$telephone'; // Préfixe pour la Côte d'Ivoire
+    String phoneNumber = '+221$telephone'; // Préfixe pour la Côte d'Ivoire
 
     // Méthode de vérification de téléphone
     Compte? result = await _authService.connexionParTelephone(phoneNumber);
@@ -210,4 +218,49 @@ Future<bool> verifierOTP(String telephone, String otp) async {
   double get userBalance => (userData['montant'] as num?)?.toDouble() ?? 0.0;
 
   List<Map<String, dynamic>> get userTransactions => _transactions.toList();
+
+ Future<bool> loginWithFacebook({
+    required String email, 
+    required String facebookId,
+    String? nom, 
+    String? prenom
+  }) async {
+    try {
+      // Vérifier si un utilisateur avec cet ID Facebook existe
+      final user = await _authService.findByFacebookId(facebookId);
+      
+      if (user != null) {
+        // Connecter l'utilisateur existant
+        currentUser.value = user;
+        return true;
+      }
+
+      // Si l'utilisateur n'existe pas, créer un nouveau compte
+      final nouveauCompte = Compte(
+        email: email,
+        type: TypeCompte.CLIENT, // Type par défaut
+        telephone: '', // À compléter plus tard si nécessaire
+        prenom: prenom,
+        nom: nom,
+      //   facebookId: facebookId,
+        password: '', // Pas de mot de passe pour la connexion Facebook
+      );
+
+      // Créer le compte
+      Compte? success = await _authService.creerCompte(nouveauCompte);
+      
+      if (success!=null) {
+        // Connecter le nouvel utilisateur
+        currentUser.value = nouveauCompte;
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      // Gérer les erreurs de connexion
+      print('Erreur de connexion Facebook: $e');
+      return false;
+    }
+  }
+
 }

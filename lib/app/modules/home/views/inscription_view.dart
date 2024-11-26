@@ -1,16 +1,31 @@
+// ignore_for_file: unnecessary_cast
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../data/models/Compte.dart';
 import '../controllers/auth_controller.dart';
-
-
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:get/get.dart';
-import '../../../data/models/Compte.dart';
-import '../controllers/auth_controller.dart';
+
+
+
+  // Si vous avez une méthode fromJson(), mettez-la à jour aussi
+ 
 
 class InscriptionView extends GetView<AuthController> {
+
+  final String? nom;
+  final String? prenom;
+  final String? email;
+
+
+   // Constructeur avec paramètres optionnels
+  InscriptionView({
+    this.nom,
+    this.prenom,
+    this.email,
+    Key? key,
+  }) : super(key: key);
+
   final _formKey = GlobalKey<FormState>();
   final _telephoneController = TextEditingController();
   final _prenomController = TextEditingController();
@@ -23,7 +38,16 @@ class InscriptionView extends GetView<AuthController> {
   final RxBool _obscureCodeConfirmation = true.obs;
 
   @override
+  void onInit() {
+    // Initialisez les contrôleurs avec les valeurs passées si elles existent
+    if (prenom != null) _prenomController.text = prenom!;
+    if (nom != null) _nomController.text = nom!;
+    if (email != null) _emailController.text = email!;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Le reste du code build reste identique jusqu'au _buildForm
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -112,10 +136,8 @@ class InscriptionView extends GetView<AuthController> {
                       ),
                     ),
                     const SizedBox(height: 40),
-                    // Formulaire
                     _buildForm(context),
                     const SizedBox(height: 24),
-                    // Lien connexion
                     _buildLoginLink(),
                     const SizedBox(height: 40),
                   ],
@@ -166,22 +188,25 @@ class InscriptionView extends GetView<AuthController> {
                 hintText: '7X XXX XX XX',
                 context: context,
                 icon: Icons.phone_android,
+                isRequired: true,
               ),
               const SizedBox(height: 16),
               _buildFormField(
                 controller: _prenomController,
-                labelText: 'Prénom',
+                labelText: 'Prénom (optionnel)',
                 hintText: 'Entrez votre prénom',
                 context: context,
                 icon: Icons.person_outline,
+                isRequired: false,
               ),
               const SizedBox(height: 16),
               _buildFormField(
                 controller: _nomController,
-                labelText: 'Nom',
+                labelText: 'Nom (optionnel)',
                 hintText: 'Entrez votre nom',
                 context: context,
                 icon: Icons.person,
+                isRequired: false,
               ),
               const SizedBox(height: 16),
               Obx(() => _buildFormField(
@@ -193,6 +218,7 @@ class InscriptionView extends GetView<AuthController> {
                 icon: Icons.lock_outline,
                 showPassword: _obscureCode.value,
                 onTogglePassword: () => _obscureCode.value = !_obscureCode.value,
+                isRequired: true,
               )),
               const SizedBox(height: 16),
               Obx(() => _buildFormField(
@@ -204,14 +230,16 @@ class InscriptionView extends GetView<AuthController> {
                 icon: Icons.lock,
                 showPassword: _obscureCodeConfirmation.value,
                 onTogglePassword: () => _obscureCodeConfirmation.value = !_obscureCodeConfirmation.value,
+                isRequired: true,
               )),
               const SizedBox(height: 16),
               _buildFormField(
                 controller: _emailController,
-                labelText: 'Email',
+                labelText: 'Email (optionnel)',
                 hintText: 'Entrez votre email',
                 context: context,
                 icon: Icons.email_outlined,
+                isRequired: false,
               ),
               const SizedBox(height: 24),
               _buildInscriptionButton(context),
@@ -231,6 +259,7 @@ class InscriptionView extends GetView<AuthController> {
     bool isPassword = false,
     bool? showPassword,
     VoidCallback? onTogglePassword,
+    required bool isRequired,
   }) {
     return TextFormField(
       controller: controller,
@@ -271,89 +300,89 @@ class InscriptionView extends GetView<AuthController> {
         fillColor: Colors.grey.shade50,
       ),
       validator: (value) {
-        if (value == null || value.isEmpty) {
+        if (isRequired && (value == null || value.isEmpty)) {
           return 'Ce champ est requis';
         }
-        if (labelText == 'Email' && !value.contains('@')) {
-          return 'Veuillez entrer une adresse email valide';
-        }
-        if (labelText == 'Confirmer le code' && value != _codeController.text) {
-          return 'Les codes ne correspondent pas';
+        if (value != null && value.isNotEmpty) {
+          if (labelText.contains('Email') && !value.contains('@')) {
+            return 'Veuillez entrer une adresse email valide';
+          }
+          if (labelText == 'Confirmer le code' && value != _codeController.text) {
+            return 'Les codes ne correspondent pas';
+          }
         }
         return null;
       },
-      keyboardType: labelText == 'Email'
+      keyboardType: labelText.contains('Email')
           ? TextInputType.emailAddress
-          : labelText == 'Numéro de téléphone'
+          : labelText.contains('Numéro de téléphone')
               ? TextInputType.phone
               : TextInputType.text,
       inputFormatters: [
-        if (labelText == 'Numéro de téléphone')
+        if (labelText.contains('Numéro de téléphone'))
           LengthLimitingTextInputFormatter(10),
       ],
     );
   }
 
-  Widget _buildInscriptionButton(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () async {
-        if (_formKey.currentState!.validate()) {
-          try {
-            final nouveauCompte = Compte(
-            
-              email: _emailController.text,
-              password: _codeController.text,
-              type: TypeCompte.CLIENT,
-              telephone: _telephoneController.text,
-              prenom: _prenomController.text,
-              nom: _nomController.text
-            );
+ Widget _buildInscriptionButton(BuildContext context) {
+  return ElevatedButton(
+    onPressed: () async {
+      if (_formKey.currentState!.validate()) {
+        try {
+          final nouveauCompte = Compte(
+            email: _emailController.text.isEmpty ? null : _emailController.text,
+            password: _codeController.text,
+            type: TypeCompte.CLIENT,
+            telephone: _telephoneController.text,
+            prenom: _prenomController.text.isEmpty ? null : _prenomController.text,
+            nom: _nomController.text.isEmpty ? null : _nomController.text,
+          );
 
-            final success = await controller.inscription(nouveauCompte);
-            
-            if (success) {
-              Get.offAllNamed('/home');
-            }
-          } catch (e) {
-            Get.snackbar(
-              'Erreur',
-              'Erreur lors de l\'inscription: ${e.toString()}',
-              snackPosition: SnackPosition.BOTTOM,
-              backgroundColor: Colors.red,
-              colorText: Colors.white,
-              borderRadius: 12,
-              margin: const EdgeInsets.all(16),
-              icon: const Icon(Icons.error_outline, color: Colors.white),
-            );
+          final success = await controller.inscription(nouveauCompte);
+          
+          if (success) {
+            Get.offAllNamed('/home');
           }
+        } catch (e) {
+          Get.snackbar(
+            'Erreur',
+            'Erreur lors de l\'inscription: ${e.toString()}',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            borderRadius: 12,
+            margin: const EdgeInsets.all(16),
+            icon: const Icon(Icons.error_outline, color: Colors.white),
+          );
         }
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Theme.of(context).primaryColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        elevation: 3,
+      }
+    },
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Theme.of(context).primaryColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.how_to_reg, color: Colors.white),
-          SizedBox(width: 8),
-          Text(
-            'S\'inscrire',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      elevation: 3,
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: const [
+        Icon(Icons.how_to_reg, color: Colors.white),
+        SizedBox(width: 8),
+        Text(
+          'S\'inscrire',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
-        ],
-      ),
-    );
-  }
-
+        ),
+      ],
+    ),
+  );
+}
   Widget _buildLoginLink() {
     return TweenAnimationBuilder(
       tween: Tween<double>(begin: 0, end: 1),

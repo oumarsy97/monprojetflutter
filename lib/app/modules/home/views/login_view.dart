@@ -1,4 +1,7 @@
+// ignore_for_file: override_on_non_overriding_member
+
 import 'package:flutter/material.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:get/get.dart';
 import '../../../data/models/Compte.dart';
 import '../controllers/auth_controller.dart';
@@ -242,6 +245,60 @@ class LoginView extends GetView<AuthController> {
     );
   }
 
+
+
+
+  // Nouvelle méthode pour la connexion Facebook
+  void _handleFacebookLogin() async {
+    try {
+      _isLoading.value = true;
+      _error.value = '';
+      
+      // Déclencher le processus de connexion Facebook
+      final LoginResult result = await FacebookAuth.instance.login(
+        permissions: ['email', 'public_profile'],
+      );
+
+      if (result.status == LoginStatus.success) {
+        // Récupérer les informations de l'utilisateur
+        final AccessToken accessToken = result.accessToken!;
+        final userData = await FacebookAuth.instance.getUserData();
+
+        // Essayer de se connecter avec les informations Facebook
+        bool success = await controller.loginWithFacebook(
+          email: userData['email'],
+          facebookId: userData['id'],
+          nom: userData['last_name'],
+          prenom: userData['first_name']
+        );
+        
+        if (success) {
+          Object role = controller.currentUser.value?.type ?? '';
+          role == TypeCompte.DISTRIBUTEUR 
+            ? Get.offAllNamed('/distributeur') 
+            : Get.offAllNamed('/home');
+        } else {
+          throw 'Échec de la connexion Facebook';
+        }
+      } else {
+        throw 'Connexion Facebook annulée';
+      }
+    } catch (e) {
+      _error.value = e.toString();
+      Get.snackbar(
+        'Erreur',
+        'Échec de connexion Facebook: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        borderRadius: 12,
+        margin: const EdgeInsets.all(16),
+        icon: const Icon(Icons.error_outline, color: Colors.white),
+      );
+    } finally {
+      _isLoading.value = false;
+    }
+  }
   Widget _buildLoginForm() {
     return Form(
       key: _formKey,
@@ -353,6 +410,28 @@ class LoginView extends GetView<AuthController> {
         _buildDivider(),
         _buildGoogleButton(),
         _buildPhoneButton(), // Ajout du bouton de connexion par téléphone
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 16),
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.facebook, color: Colors.white),
+            label: Text(
+              'Continuer avec Facebook',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade800,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: _handleFacebookLogin,
+          ),
+        ),
         TextButton(
           onPressed: () => Get.toNamed('/reset-password'),
           child: Text(

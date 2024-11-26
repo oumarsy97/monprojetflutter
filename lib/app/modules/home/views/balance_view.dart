@@ -72,7 +72,6 @@ class _BalanceCardState extends State<BalanceCard> {
               ),
             ],
           ),
-          const SizedBox(height: 2),
           Obx(() => Text(
             isBalanceVisible 
                 ? '${authController.userBalance.toStringAsFixed(0)} FCFA'
@@ -86,7 +85,6 @@ class _BalanceCardState extends State<BalanceCard> {
             ),
             textAlign: TextAlign.center,
           )),
-          const SizedBox(height: 5),
           Obx(() {
             final telephone = authController.userPhone;
             if (telephone.isNotEmpty) {
@@ -115,7 +113,6 @@ class _BalanceCardState extends State<BalanceCard> {
             }
             return const SizedBox.shrink();
           }),
-          const SizedBox(height: 10),
         ],
       ),
     );

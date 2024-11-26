@@ -26,7 +26,6 @@ void main() async {
 
   // Vérifier l'utilisateur initial
   User? initialUser = FirebaseAuth.instance.currentUser;
-
   runApp(
     GetMaterialApp(
       title: "Application",

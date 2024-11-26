@@ -6,13 +6,13 @@ class Compte {
   String? id;
   TypeCompte type;
   String telephone;
-  String email;
+  String? email;
   String password;
   double montant;
   Statut statut;
   double limiteMensuelle;
-  String prenom;
-  String nom;
+  String? prenom;
+  String? nom;
   double? plafond;
 
   // Constructeur

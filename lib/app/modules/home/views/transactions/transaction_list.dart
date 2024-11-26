@@ -1,4 +1,3 @@
-// transaction_view.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/transaction_controller.dart';
@@ -74,6 +73,14 @@ class TransactionView extends GetView<TransactionController> {
     return phone;
   }
 
+  void _showTransactionDetails(BuildContext context, dynamic transaction, TransactionDisplay display) {
+    Get.to(
+      () => DetailTransactionPage(transaction: transaction, display: display),
+      transition: Transition.rightToLeft,
+      duration: const Duration(milliseconds: 300),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -104,16 +111,9 @@ class TransactionView extends GetView<TransactionController> {
                   color: Color(0xFF001B5E),
                 ),
               ),
-              TextButton.icon(
+              IconButton(
                 onPressed: controller.loadMoreTransactions,
                 icon: const Icon(Icons.refresh, color: Color(0xFF001B5E)),
-                label: const Text(
-                  '',
-                  style: TextStyle(
-                    color: Color(0xFF001B5E),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
               ),
             ],
           ),
@@ -155,108 +155,110 @@ class TransactionView extends GetView<TransactionController> {
                 final display = getTransactionDisplay(transaction);
                 final canCancel = canCancelTransaction(transaction.date);
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ExpansionTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: display.color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        display.icon,
-                        color: display.color,
-                      ),
+                return GestureDetector(
+                  onTap: () => _showTransactionDetails(context, transaction, display),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    title: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: display.color.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              display.icon,
+                              color: display.color,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  display.displayType,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat('dd/MM/yyyy à HH:mm')
+                                      .format(transaction.date),
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                display.displayType,
-                                style: const TextStyle(
+                                '${display.sign}${transaction.montant} FCFA',
+                                style: TextStyle(
+                                  color: display.color,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                 ),
                               ),
-                              Text(
-                                DateFormat('dd/MM/yyyy à HH:mm')
-                                    .format(transaction.date),
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _getStatusColor(transaction.status)
+                                      .withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  transaction.status.toUpperCase(),
+                                  style: TextStyle(
+                                    color: _getStatusColor(transaction.status),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        Text(
-                          '${display.sign}${transaction.montant.toStringAsFixed(0)} FCFA',
-                          style: TextStyle(
-                            color: display.color,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            _buildDetailRow(
-                                'Référence', transaction.reference ?? ''),
-                            _buildDetailRow('Destinataire',
-                                _formatPhoneNumber(transaction.destinataire)),
-                            _buildDetailRow(
-                                'Montant', '${transaction.montant} FCFA'),
-                            _buildDetailRow('Status', transaction.status),
-                            Container(
-                              margin: const EdgeInsets.only(top: 12),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(transaction.status),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Text(
-                                transaction.status.toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          if (canCancel &&
+                              transaction.status.toLowerCase() == 'effectue')
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: IconButton(
+                                icon: const Icon(Icons.cancel_outlined,
+                                    color: Colors.red),
+                                onPressed: () =>
+                                    controller.showCancellationDialog(transaction),
+                                tooltip: 'Annuler la transaction',
                               ),
                             ),
-                            if (canCancel && transaction.status.toLowerCase() == 'effectue')
-                              Padding(
-                                padding: const EdgeInsets.only(top: 16),
-                                child: ElevatedButton.icon(
-                                  onPressed: () => controller.showCancellationDialog(transaction),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  icon: const Icon(Icons.cancel),
-                                  label: const Text('Annuler la transaction'),
-                                ),
-                              ),
-                          ],
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 );
               },
@@ -267,9 +269,31 @@ class TransactionView extends GetView<TransactionController> {
     );
   }
 
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'en_attente':
+        return Colors.orange;
+      case 'effectue':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+}
+
+class DetailTransactionPage extends StatelessWidget {
+  final dynamic transaction;
+  final TransactionDisplay display;
+
+  const DetailTransactionPage({
+    Key? key,
+    required this.transaction,
+    required this.display,
+  }) : super(key: key);
+
   Widget _buildDetailRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -292,15 +316,141 @@ class TransactionView extends GetView<TransactionController> {
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'en_attente':
-        return Colors.orange;
-      case 'effectue':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: display.color.withOpacity(0.1),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          color: display.color,
+          onPressed: () => Get.back(),
+        ),
+        title: Text(
+          'Détails de la transaction',
+          style: TextStyle(
+            color: display.color,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: display.color.withOpacity(0.1),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    display.icon,
+                    size: 48,
+                    color: display.color,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '${display.sign}${transaction.montant} FCFA',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: display.color,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    display.displayType,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    DateFormat('dd/MM/yyyy à HH:mm').format(transaction.date),
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Informations de la transaction',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildDetailRow('Référence', transaction.reference ?? ''),
+                        _buildDetailRow('Destinataire', transaction.destinataire),
+                        _buildDetailRow('Montant', '${transaction.montant} FCFA'),
+                        _buildDetailRow('Status', transaction.status),
+                      ],
+                    ),
+                  ),
+                  if (transaction.status.toLowerCase() == 'effectue')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 24),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => Get.find<TransactionController>()
+                              .showCancellationDialog(transaction),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.cancel_outlined),
+                              SizedBox(width: 8),
+                              Text(
+                                'Annuler la transaction',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

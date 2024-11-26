@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/auth_controller.dart';
+import 'planifie/list_planifie.dart';
 
 class AppDrawer extends GetView<AuthController> {
   const AppDrawer({Key? key}) : super(key: key);
@@ -64,8 +65,7 @@ class AppDrawer extends GetView<AuthController> {
                   icon: Icons.date_range,
                   title: 'Transactions programmées',
                   onTap: () {
-                    Get.back();
-                    Get.toNamed('/transactions');
+                    Get.to(() => const TransfertsPlanifiesPage());
                   },
                 ),
                 _buildDrawerItem(
