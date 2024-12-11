@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:flutter_contacts/flutter_contacts.dart' as flutter_contacts;
+import 'package:permission_handler/permission_handler.dart';
 
-import '../../../../data/models/contact.dart';
+import '../../../../data/models/contact.dart' as app_contact;
 import '../../controllers/auth_controller.dart';
-import 'contacts_list.dart';
+import '../../controllers/contactController.dart';
 
 class MultipleTransferPage extends StatefulWidget {
   const MultipleTransferPage({Key? key}) : super(key: key);
@@ -14,31 +16,63 @@ class MultipleTransferPage extends StatefulWidget {
 
 class _MultipleTransferPageState extends State<MultipleTransferPage> {
   final AuthController authController = Get.find<AuthController>();
-  List<Contact> selectedContacts = [];
+  final ContactsFavorisController _contactsFavorisController = Get.put(ContactsFavorisController());
+  
+  List<flutter_contacts.Contact> _allContacts = [];
+  List<flutter_contacts.Contact> _filteredContacts = [];
+  List<flutter_contacts.Contact> _selectedContacts = [];
+  
+  final TextEditingController _searchController = TextEditingController();
   final TextEditingController amountController = TextEditingController();
+  
   bool _isLoading = false;
+  bool _showFavorites = true;
 
-  void _selectContacts() {
-    Get.bottomSheet(
-      ContactListSheet(
-        multiSelect: true,
-        onContactsSelected: (contacts) {
-          setState(() {
-            selectedContacts = contacts;
-          });
-        },
-      ),
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-    );
+  // Couleurs de design
+  final Color _darkBlue = const Color(0xFF0D1B4A);
+  final Color _midnightBlue = const Color(0xFF1A3A6C);
+  final Color _deepOceanBlue = const Color(0xFF123456);
+  final Color _navyBlue = const Color(0xFF070E2D);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContacts();
   }
 
-  void _removeContact(Contact contact) {
+  Future<void> _loadContacts() async {
+    var status = await Permission.contacts.status;
+    if (status.isDenied) {
+      status = await Permission.contacts.request();
+    }
+
+    if (status.isGranted) {
+      final contacts = await flutter_contacts.FlutterContacts.getContacts(withProperties: true);
+      await _contactsFavorisController.chargerContactsFavoris();
+      
+      setState(() {
+        _allContacts = contacts;
+        _filteredContacts = contacts;
+      });
+    }
+  }
+
+  void _filterContacts(String query) {
     setState(() {
-      selectedContacts.remove(contact);
+      _filteredContacts = _allContacts
+          .where((contact) =>
+              contact.displayName.toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    });
+  }
+
+  void _toggleContactSelection(flutter_contacts.Contact contact) {
+    setState(() {
+      if (_selectedContacts.contains(contact)) {
+        _selectedContacts.remove(contact);
+      } else {
+        _selectedContacts.add(contact);
+      }
     });
   }
 
@@ -46,10 +80,11 @@ class _MultipleTransferPageState extends State<MultipleTransferPage> {
     final double amount = double.tryParse(amountController.text) ?? 0;
     final double fees = amount <= 500 ? 5 : (amount * 0.01).clamp(0, 5000);
     final double total = amount + fees;
-    final double totalTransfer = total * selectedContacts.length;
+    final double totalTransfer = total * _selectedContacts.length;
 
     Get.dialog(
       Dialog(
+        backgroundColor: _darkBlue,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(15),
         ),
@@ -63,32 +98,33 @@ class _MultipleTransferPageState extends State<MultipleTransferPage> {
                 children: [
                   Text(
                     'Confirmation du transfert multiple',
-                    style: Get.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF6C38CC),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold, 
+                      color: Colors.white,
+                      fontSize: 18
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _buildConfirmationRow('Nombre de destinataires', '${selectedContacts.length}'),
+                  _buildConfirmationRow('Nombre de destinataires', '${_selectedContacts.length}'),
                   _buildConfirmationRow('Montant par destinataire', '$amount FCFA'),
                   _buildConfirmationRow('Frais par transfert', '$fees FCFA'),
-                  const Divider(height: 20, color: Colors.grey),
+                  const Divider(height: 20, color: Colors.white24),
                   Text(
                     'Total à transférer: ${totalTransfer.toStringAsFixed(2)} FCFA',
-                    style: Get.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold, 
+                      color: Colors.lightBlueAccent,
+                      fontSize: 16
                     ),
                   ),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      if (!_isLoading)
-                        TextButton(
-                          onPressed: () => Get.back(),
-                          child: const Text('Annuler', style: TextStyle(color: Colors.red)),
-                        ),
+                      TextButton(
+                        onPressed: () => Get.back(),
+                        child: const Text('Annuler', style: TextStyle(color: Colors.redAccent)),
+                      ),
                       const SizedBox(width: 10),
                       ElevatedButton(
                         onPressed: _isLoading ? null : () {
@@ -98,7 +134,7 @@ class _MultipleTransferPageState extends State<MultipleTransferPage> {
                           _performMultipleTransfer();
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6C38CC),
+                          backgroundColor: _midnightBlue,
                         ),
                         child: _isLoading 
                           ? const SizedBox(
@@ -113,14 +149,6 @@ class _MultipleTransferPageState extends State<MultipleTransferPage> {
                       ),
                     ],
                   ),
-                  if (_isLoading)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 16.0),
-                      child: LinearProgressIndicator(
-                        backgroundColor: Colors.purple,
-                        color: Colors.purpleAccent,
-                      ),
-                    ),
                 ],
               ),
             );
@@ -137,8 +165,8 @@ class _MultipleTransferPageState extends State<MultipleTransferPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: Get.textTheme.bodyMedium),
-          Text(value, style: Get.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(label, style: TextStyle(color: Colors.white70)),
+          Text(value, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -150,12 +178,12 @@ class _MultipleTransferPageState extends State<MultipleTransferPage> {
       final double fees = amount <= 500 ? 5 : (amount * 0.01).clamp(0, 5000);
       final double total = amount + fees;
 
-      for (var contact in selectedContacts) {
+      for (var contact in _selectedContacts) {
         final transaction = {
           'montant': amount,
           'frais': fees,
           'total': total,
-          'destinataire': contact.phoneNumber,
+          'destinataire': contact.phones.isNotEmpty ? contact.phones.first.number : '',
           'emetteur': authController.userPhone,
           'date': DateTime.now(),
           'type': 'TRANSFERT_MULTIPLE',
@@ -163,17 +191,15 @@ class _MultipleTransferPageState extends State<MultipleTransferPage> {
         };
 
         await authController.addTransaction(transaction);
-        // Simulate network delay
         await Future.delayed(const Duration(milliseconds: 500));
       }
 
-      Get.back(); // Close confirmation dialog
-      Get.back(); // Close multiple transfer page
+      Get.back(); // Fermer la boîte de dialogue de confirmation
       Get.snackbar(
         'Succès',
         'Transferts multiples effectués avec succès',
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF6C38CC),
+        backgroundColor: _midnightBlue,
         colorText: Colors.white,
       );
     } catch (e) {
@@ -181,7 +207,7 @@ class _MultipleTransferPageState extends State<MultipleTransferPage> {
         'Erreur',
         'Erreur lors des transferts: ${e.toString()}',
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.red.shade900,
         colorText: Colors.white,
       );
     } finally {
@@ -194,87 +220,125 @@ class _MultipleTransferPageState extends State<MultipleTransferPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: _navyBlue,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Transfert Multiple', 
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFF6C38CC),
+        backgroundColor: _darkBlue,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(_showFavorites ? Icons.list : Icons.star, color: Colors.white),
+            onPressed: () {
+              setState(() {
+                _showFavorites = !_showFavorites;
+                if (_showFavorites) {
+                  _filteredContacts = _contactsFavorisController.contactsFavoris
+                    .map((favContact) => flutter_contacts.Contact()
+                      ..displayName = favContact.displayName
+                      ..phones = [flutter_contacts.Phone(favContact.phoneNumber)])
+                    .toList();
+                } else {
+                  _filteredContacts = _allContacts;
+                }
+              });
+            },
+          )
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ElevatedButton.icon(
-              onPressed: _selectContacts,
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text('Ajouter des contacts', style: TextStyle(color: Colors.white)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6C38CC),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+      body: Column(
+        children: [
+          // Barre de recherche
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _searchController,
+              style: TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Rechercher un contact...',
+                hintStyle: TextStyle(color: Colors.white70),
+                prefixIcon: Icon(Icons.search, color: Colors.white),
+                filled: true,
+                fillColor: _midnightBlue,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
                 ),
               ),
+              onChanged: _filterContacts,
             ),
-            const SizedBox(height: 16),
-            TextField(
+          ),
+
+          // Montant du transfert
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
+              style: TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'Montant par destinataire',
+                labelStyle: TextStyle(color: Colors.white70),
                 suffixText: 'FCFA',
+                suffixStyle: TextStyle(color: Colors.white70),
+                filled: true,
+                fillColor: _midnightBlue,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFF6C38CC)),
+                  borderSide: BorderSide.none,
                 ),
               ),
-              onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Contacts sélectionnés:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Expanded(
-              child: selectedContacts.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Aucun contact sélectionné',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: selectedContacts.length,
-                      itemBuilder: (context, index) {
-                        final contact = selectedContacts[index];
-                        return Card(
-                          elevation: 2,
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: ListTile(
-                            title: Text(
-                              contact.displayName,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text(contact.phoneNumber),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.remove_circle, color: Colors.red),
-                              onPressed: () => _removeContact(contact),
-                            ),
-                          ),
-                        );
-                      },
+          ),
+          const SizedBox(height: 16),
+
+          // Liste des contacts
+          Expanded(
+            child: ListView.builder(
+              itemCount: _filteredContacts.length,
+              itemBuilder: (context, index) {
+                final contact = _filteredContacts[index];
+                final isSelected = _selectedContacts.contains(contact);
+
+                return ListTile(
+                  tileColor: isSelected ? _midnightBlue.withOpacity(0.5) : null,
+                  leading: CircleAvatar(
+                    backgroundColor: _midnightBlue,
+                    child: Text(
+                      contact.displayName.isNotEmpty 
+                        ? contact.displayName[0].toUpperCase() 
+                        : '?',
+                      style: TextStyle(color: Colors.white),
                     ),
+                  ),
+                  title: Text(
+                    contact.displayName,
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  subtitle: Text(
+                    contact.phones.isNotEmpty 
+                      ? contact.phones.first.number 
+                      : 'Pas de numéro',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                  trailing: Checkbox(
+                    value: isSelected,
+                    activeColor: Colors.lightBlueAccent,
+                    onChanged: (_) => _toggleContactSelection(contact),
+                  ),
+                  onTap: () => _toggleContactSelection(contact),
+                );
+              },
             ),
-            if (selectedContacts.isNotEmpty && amountController.text.isNotEmpty)
-              ElevatedButton(
+          ),
+
+          // Bouton de transfert
+          if (_selectedContacts.isNotEmpty && amountController.text.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ElevatedButton(
                 onPressed: () {
                   final amount = double.tryParse(amountController.text);
                   if (amount != null && amount > 0) {
@@ -284,25 +348,25 @@ class _MultipleTransferPageState extends State<MultipleTransferPage> {
                       'Erreur',
                       'Veuillez saisir un montant valide',
                       snackPosition: SnackPosition.BOTTOM,
-                      backgroundColor: Colors.red,
+                      backgroundColor: Colors.red.shade900,
                       colorText: Colors.white,
                     );
                   }
                 },
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
-                  backgroundColor: const Color(0xFF6C38CC),
+                  backgroundColor: _deepOceanBlue,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text(
-                  'Procéder aux transferts', 
+                child: Text(
+                  'Transférer (${_selectedContacts.length} contacts)', 
                   style: TextStyle(color: Colors.white),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

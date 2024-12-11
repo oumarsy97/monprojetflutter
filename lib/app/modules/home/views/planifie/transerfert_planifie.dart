@@ -5,6 +5,9 @@ import 'package:monprojectgetx/app/modules/home/controllers/transaction_controll
 import 'package:permission_handler/permission_handler.dart';
 import 'package:get/get.dart';
 
+import '../../controllers/contactController.dart';
+import 'contact_favori.dart';
+
 class TransfertPlanifiePage extends StatefulWidget {
   const TransfertPlanifiePage({Key? key}) : super(key: key);
 
@@ -13,7 +16,7 @@ class TransfertPlanifiePage extends StatefulWidget {
 }
 
 class _TransfertPlanifiePageState extends State<TransfertPlanifiePage> with SingleTickerProviderStateMixin {
-  Contact? selectedContact;
+   Contact? selectedContact;
   List<Contact> contacts = [];
   List<Contact> filteredContacts = [];
   final _formKey = GlobalKey<FormState>();
@@ -22,8 +25,9 @@ class _TransfertPlanifiePageState extends State<TransfertPlanifiePage> with Sing
   bool _isContactSelectorExpanded = false;
   late AnimationController _animationController;
   late Animation<double> _animation;
-  final TransactionController transactionController = Get.find<TransactionController>();
   
+  final TransactionController transactionController = Get.find<TransactionController>();
+  final ContactsFavorisController contactsFavorisController = Get.find<ContactsFavorisController>();
 
   final TextEditingController _montantController = TextEditingController(text: '0');
   final TextEditingController _searchController = TextEditingController();
@@ -56,7 +60,7 @@ class _TransfertPlanifiePageState extends State<TransfertPlanifiePage> with Sing
     );
   }
 
-  Future<void> _checkPermissionsAndLoadContacts() async {
+ Future<void> _checkPermissionsAndLoadContacts() async {
     var status = await Permission.contacts.status;
     if (status.isDenied) {
       status = await Permission.contacts.request();
@@ -65,6 +69,96 @@ class _TransfertPlanifiePageState extends State<TransfertPlanifiePage> with Sing
       await _loadContacts();
     }
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  Widget _buildFavoriteContactsSection() {
+    return Obx(() {
+      final favoriteContacts = contactsFavorisController.contactsFavoris;
+      
+      if (favoriteContacts.isEmpty) {
+        return Container(); // Ne pas afficher si pas de favoris
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Contacts favoris',
+                  style: TextStyle(
+                    color: Color(0xFF001B5E),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Get.to(() => ContactsFavorisPage()),
+                  child: Text(
+                    'Voir tout',
+                    style: TextStyle(color: Color(0xFF001B5E)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 100,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: favoriteContacts.length,
+              itemBuilder: (context, index) {
+                final contact = favoriteContacts[index];
+                return GestureDetector(
+                  onTap: () {
+                    // Convertir le contact favori en Contact de FlutterContacts
+                    final matchingContact = contacts.firstWhere(
+                      (c) => c.phones.isNotEmpty && 
+                             c.phones.first.number.replaceAll(RegExp(r'[^\d+]'), '') == 
+                             contact.phoneNumber.replaceAll(RegExp(r'[^\d+]'), ''),
+                      orElse: () => Contact(),
+                    );
+
+                    if (matchingContact.phones.isNotEmpty) {
+                      setState(() {
+                        selectedContact = matchingContact;
+                        destinataireTelephone = matchingContact.phones.first.number;
+                      });
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: Color(0xFF001B5E),
+                          child: Text(
+                            contact.displayName.isNotEmpty ? contact.displayName[0].toUpperCase() : '?',
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          contact.displayName,
+                          style: const TextStyle(
+                            color: Color(0xFF001B5E),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      );
+    });
   }
 
   Widget _buildContactSelector() {
@@ -397,49 +491,66 @@ Future<void> _submitTransfer() async {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF001B5E)),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.people, color: Color(0xFF001B5E)),
+            onPressed: () => Get.to(() => ContactsFavorisPage()),
+            tooltip: 'Gérer les contacts favoris',
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF001B5E)))
           : Form(
               key: _formKey,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(0),
                 children: [
-                  _buildContactSelector(),
-                  const SizedBox(height: 8),
-                  _buildAmountInput(),
-                  const SizedBox(height: 8),
-                  _buildDateTimeSelector(),
-                  const SizedBox(height: 8),
-                  _buildRecurrenceSelector(),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submitTransfer,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF001B5E),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text(
-                              'Planifier le transfert',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                  // Section des contacts favoris
+                  _buildFavoriteContactsSection(),
+
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        _buildContactSelector(),
+                        const SizedBox(height: 8),
+                        _buildAmountInput(),
+                        const SizedBox(height: 8),
+                        _buildDateTimeSelector(),
+                        const SizedBox(height: 8),
+                        _buildRecurrenceSelector(),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: _isSubmitting ? null : _submitTransfer,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF001B5E),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
+                            child: _isSubmitting
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Planifier le transfert',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -447,8 +558,7 @@ Future<void> _submitTransfer() async {
             ),
     );
   }
-
-  @override
+   @override
   void dispose() {
     _montantController.dispose();
     _searchController.dispose();

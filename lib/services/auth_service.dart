@@ -1,9 +1,12 @@
+// ignore_for_filed_print
+
 // ignore_for_file: avoid_print
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:monprojectgetx/app/data/models/contact.dart';
 
 import '../app/core/utils/crypto_utils.dart';
 import '../app/data/models/Compte.dart';
@@ -18,6 +21,48 @@ class AuthService {
   // Variables pour l'authentification par téléphone
   String? _verificationId;
 
+
+  // Création de contact favori
+  Future<Contact?> creerContact(Contact contact) async  {
+  try {
+    // Vérifier que l'utilisateur est connecté
+    User? currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      print("Aucun utilisateur connecté");
+      return null;
+    }
+
+    // Référence du document du compte
+    DocumentReference compteRef = _firestore.collection('comptes').doc(currentUser.uid);
+
+    // Récupérer le document du compte
+    DocumentSnapshot compteSnapshot = await compteRef.get();
+    
+    // Convertir le document en objet Compte
+    Compte compte = Compte.fromMap(compteSnapshot.data() as Map<String, dynamic>);
+
+    // Ajouter l'ID unique au contact
+    contact.id = _firestore.collection('contacts').doc().id;
+
+    // Sauvegarde du contact dans la sous-collection 'contacts' du compte
+    await compteRef.collection('contacts').doc(contact.id).set(contact.toMap());
+
+    // Mettre à jour la liste des contacts favoris dans l'objet Compte
+    // (Assurez-vous que votre modèle Compte a une liste de contacts)
+    compte.contactsFavoris ??= [];
+    compte.contactsFavoris!.add(contact);
+
+    // Mettre à jour le document du compte
+    await compteRef.update({
+      'contactsFavoris': compte.contactsFavoris?.map((c) => c.toMap()).toList()
+    });
+
+    return contact;
+  } catch (e) {
+    print("Erreur création contact: $e");
+    return null;
+  }
+}
   // Création de compte standard
   Future<Compte?> creerCompte(Compte compte) async {
     try {
@@ -212,17 +257,68 @@ class AuthService {
     }
   }
 
-  Future<void> loginWithFacebook() async {
-    try {
-      final LoginResult result = await FacebookAuth.instance.login();
-      if (result.status == LoginStatus.success) {
-        // Récupérer les infos utilisateur
-        final AccessToken accessToken = result.accessToken!;
+ Future<Compte?> loginWithFacebook() async {
+  try {
+    // 1. Tentative de connexion avec Facebook
+    final LoginResult result = await FacebookAuth.instance.login();
+    
+    // Vérifier le statut de la connexion
+    if (result.status == LoginStatus.success) {
+      // 2. Obtention des credentials d'authentification Facebook
+      final AccessToken accessToken = result.accessToken!;
+      
+      // Debug: Print out available properties
+      print('Access Token Details:');
+      print('Token String: ${accessToken.toString()}');
+      
+      // 3. Connexion à Firebase avec les credentials Facebook
+      final OAuthCredential facebookAuthCredential = 
+          FacebookAuthProvider.credential(accessToken.toString());
+
+      final userCredential = await _auth.signInWithCredential(facebookAuthCredential);
+      final user = userCredential.user!;
+
+      // Récupérer les informations de l'utilisateur Facebook
+      final userData = await FacebookAuth.instance.getUserData();
+      
+      final uid = user.uid;
+      final nom = userData['first_name'];
+      final prenom = userData['last_name'];
+      final email = userData['email'];
+      
+      print("Connexion Facebook avec l'utilisateur $uid");
+      print("Nom: $nom");
+      print("Email: $email");
+
+      // 4. Vérification de l'existence du compte dans Firestore
+      final compteDoc = await _firestore.collection('comptes').doc(uid).get();
+
+      // 5. Si le compte n'existe pas, redirection vers le formulaire d'inscription
+      if (!compteDoc.exists) {
+        Get.to(
+          () => InscriptionView(
+            nom: nom,
+            prenom: prenom,
+            email: email,
+          ),
+        );
+        return null;
       }
-    } catch (e) {
-      print('Erreur de connexion Facebook');
+
+      // 6. Conversion du document Firestore en objet Compte
+      return Compte.fromMap({
+        'id': uid,
+        ...compteDoc.data() as Map<String, dynamic>,
+      });
+    } else {
+      print('Échec de connexion Facebook: ${result.status}');
+      return null;
     }
+  } catch (e) {
+    print('Erreur de connexion Facebook : $e');
+    return null;
   }
+}
 
   // Méthode pour obtenir un utilisateur par son ID
   Future<DocumentSnapshot> getUserById(String uid) {
@@ -250,6 +346,51 @@ class AuthService {
         .collection('comptes')
         .where('id', isEqualTo: facebookId)
         .get();
+  }
+
+  Future<List<Map<String, dynamic>>> getContactsFavoris() async  {
+    try {
+      User? currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        print("Aucun utilisateur connecté");
+        return [];
+      }
+
+      // Référence du document du compte
+      DocumentReference compteRef = _firestore.collection('comptes').doc(currentUser.uid);
+
+      // Récupérer la sous-collection de contacts
+      QuerySnapshot contactsSnapshot = await compteRef.collection('contacts').get();
+
+      // Récupérer les documents de la sous-collection
+      List<Map<String, dynamic>> contacts = [];
+      for (DocumentSnapshot contactSnapshot in contactsSnapshot.docs) {
+        Map<String, dynamic> contact = contactSnapshot.data() as Map<String, dynamic>;
+        contacts.add(contact);
+      }
+
+      return contacts;
+     
+    } catch (e) {
+      print("Erreur récupération des contacts favoris: $e");
+      return [];
+    }
+  }
+
+  Future<bool> supprimerContactFavori(String contactId) async  {
+    User? currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      print("Aucun utilisateur connecté");
+      return false;
+    }
+
+    // Référence du document du compte
+    DocumentReference compteRef = _firestore.collection('comptes').doc(currentUser.uid);
+
+    // Supprimer le contact favori
+    await compteRef.collection('contacts').doc(contactId).delete();
+
+    return true;
   }
 
   

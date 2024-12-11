@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:monprojectgetx/app/modules/home/controllers/transaction_controller.dart';
 
 import '../../../../data/models/planification.dart';
+import '../../controllers/transaction_controller.dart';
 import 'transerfert_planifie.dart';
 
 class TransfertsPlanifiesPage extends StatefulWidget {
@@ -16,24 +16,25 @@ class TransfertsPlanifiesPage extends StatefulWidget {
 class _TransfertsPlanifiesPageState extends State<TransfertsPlanifiesPage> {
   final TransactionController planificationController = Get.find<TransactionController>();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final TextEditingController searchController = TextEditingController();
-  String filter = '';
+
+  // Filtrage des transferts
+  String _selectedType = 'Tous';
+  final List<String> _filterTypes = ['Tous', 'journaliere', 'hebdomadaire', 'mensuel'];
 
   @override
   void initState() {
     super.initState();
     planificationController.initPlanificationsStream();
-    searchController.addListener(() {
-      setState(() {
-        filter = searchController.text.trim().toLowerCase();
-      });
-    });
   }
 
-  @override
-  void dispose() {
-    searchController.dispose();
-    super.dispose();
+  // Méthode de filtrage des planifications
+  List<Planification> _filterPlanifications() {
+    if (_selectedType == 'Tous') {
+      return planificationController.planifications;
+    }
+    return planificationController.planifications
+        .where((p) => p.type == _selectedType)
+        .toList();
   }
 
   @override
@@ -66,7 +67,31 @@ class _TransfertsPlanifiesPageState extends State<TransfertsPlanifiesPage> {
       ),
       body: Column(
         children: [
-          _buildFilterSection(),
+          // Filtre de type de transfert
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _filterTypes.map((type) => 
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ChoiceChip(
+                      label: Text(type),
+                      selected: _selectedType == type,
+                      onSelected: (bool selected) {
+                        setState(() {
+                          _selectedType = type;
+                        });
+                      },
+                      selectedColor: const Color(0xFF001B5E).withOpacity(0.2),
+                      backgroundColor: Colors.grey[200],
+                    ),
+                  )
+                ).toList(),
+              ),
+            ),
+          ),
           Expanded(
             child: Obx(
               () {
@@ -76,11 +101,7 @@ class _TransfertsPlanifiesPageState extends State<TransfertsPlanifiesPage> {
                   );
                 }
 
-                final filteredPlanifications = planificationController.planifications
-                    .where((planification) =>
-                        planification.destinatairePhone?.toLowerCase().contains(filter) ?? false ||
-                        planification.type!.toLowerCase().contains(filter) ?? false)
-                    .toList();
+                final filteredPlanifications = _filterPlanifications();
 
                 if (filteredPlanifications.isEmpty) {
                   return Center(
@@ -90,9 +111,7 @@ class _TransfertsPlanifiesPageState extends State<TransfertsPlanifiesPage> {
                         Icon(Icons.schedule, size: 64, color: Colors.grey[400]),
                         const SizedBox(height: 16),
                         Text(
-                          filter.isEmpty
-                              ? 'Aucun transfert planifié'
-                              : 'Aucun résultat pour le filtre "$filter"',
+                          'Aucun transfert planifié',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.grey[600],
@@ -103,12 +122,35 @@ class _TransfertsPlanifiesPageState extends State<TransfertsPlanifiesPage> {
                   );
                 }
 
+                // Regroupement par type
+                final groupedPlanifications = _groupPlanificationsByType(filteredPlanifications);
+
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: filteredPlanifications.length,
+                  itemCount: groupedPlanifications.length,
                   itemBuilder: (context, index) {
-                    final planification = filteredPlanifications[index];
-                    return _buildTransferCard(planification);
+                    final type = groupedPlanifications.keys.elementAt(index);
+                    final planificationsOfType = groupedPlanifications[type]!;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            type,
+                            style: const TextStyle(
+                              color: Color(0xFF001B5E),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        ...planificationsOfType.map((planification) => 
+                          _buildTransferCard(planification)
+                        ).toList(),
+                      ],
+                    );
                   },
                 );
               },
@@ -119,27 +161,19 @@ class _TransfertsPlanifiesPageState extends State<TransfertsPlanifiesPage> {
     );
   }
 
-  Widget _buildFilterSection() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: TextField(
-        controller: searchController,
-        decoration: InputDecoration(
-          hintText: 'Rechercher par type ou destinataire...',
-          prefixIcon: const Icon(Icons.search, color: Color(0xFF001B5E)),
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(30),
-            borderSide: const BorderSide(color: Colors.grey),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(30),
-            borderSide: const BorderSide(color: Color(0xFF001B5E)),
-          ),
-        ),
-      ),
-    );
+  // Méthode pour regrouper les planifications par type
+  Map<String, List<Planification>> _groupPlanificationsByType(List<Planification> planifications) {
+    final grouped = <String, List<Planification>>{};
+    
+    for (var planification in planifications) {
+      final type = planification.type ?? 'Non défini';
+      if (!grouped.containsKey(type)) {
+        grouped[type] = [];
+      }
+      grouped[type]!.add(planification);
+    }
+    
+    return grouped;
   }
 
   Widget _buildTransferCard(Planification planification) {
@@ -148,7 +182,7 @@ class _TransfertsPlanifiesPageState extends State<TransfertsPlanifiesPage> {
     final dateStr = planification.dateProchainExecution ?? '';
     final heure = planification.heure ?? '00';
     final minute = planification.minute ?? '00';
-
+    
     DateTime? date;
     try {
       date = DateTime.parse(dateStr);
@@ -173,8 +207,8 @@ class _TransfertsPlanifiesPageState extends State<TransfertsPlanifiesPage> {
                 children: [
                   Row(
                     children: [
-                      const CircleAvatar(
-                        backgroundColor: Color(0xFF001B5E),
+                      CircleAvatar(
+                        backgroundColor: _getTypeColor(planification.type),
                         radius: 20,
                         child: Icon(Icons.schedule, color: Colors.white, size: 20),
                       ),
@@ -182,14 +216,6 @@ class _TransfertsPlanifiesPageState extends State<TransfertsPlanifiesPage> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '${planification.type ?? ''}',
-                            style: const TextStyle(
-                              color: Color(0xFF001B5E),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
                           Text(
                             destinataire,
                             style: const TextStyle(
@@ -200,9 +226,9 @@ class _TransfertsPlanifiesPageState extends State<TransfertsPlanifiesPage> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            date != null
-                                ? '${DateFormat('dd/MM/yyyy').format(date)} à $heure:$minute'
-                                : 'Date invalide',
+                            date != null 
+                              ? '${DateFormat('dd/MM/yyyy').format(date)} à $heure:$minute'
+                              : 'Date invalide',
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 14,
@@ -229,6 +255,20 @@ class _TransfertsPlanifiesPageState extends State<TransfertsPlanifiesPage> {
     );
   }
 
+  // Couleur personnalisée en fonction du type de transfert
+  Color _getTypeColor(String? type) {
+    switch (type) {
+      case 'journaliere':
+        return Colors.green;
+      case 'hebdomadaire':
+        return Colors.blue;
+      case 'mensuel':
+        return Colors.orange;
+      default:
+        return const Color(0xFF001B5E);
+    }
+  }
+
   void _showTransferDetails(Planification planification) {
     showModalBottomSheet(
       context: context,
@@ -239,20 +279,206 @@ class _TransfertsPlanifiesPageState extends State<TransfertsPlanifiesPage> {
   }
 }
 
+
 class _TransferDetailsSheet extends StatelessWidget {
   final Planification planification;
+  final TransactionController planificationController = Get.find<TransactionController>();
 
-  const _TransferDetailsSheet({Key? key, required this.planification}) : super(key: key);
+  _TransferDetailsSheet({
+    Key? key,
+    required this.planification,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    final destinataire = planification.destinatairePhone ?? '';
+    final montant = planification.montant?.toString() ?? '0';
+    final dateStr = planification.dateProchainExecution ?? '';
+    final heure = planification.heure ?? '00';
+    final minute = planification.minute ?? '00';
+    
+    DateTime? date;
+    try {
+      date = DateTime.parse(dateStr);
+    } catch (e) {
+      print('Erreur de parsing de date: $e');
+    }
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.all(24),
+                children: [
+                  const Text(
+                    'Détails du transfert planifié',
+                    style: TextStyle(
+                      color: Color(0xFF001B5E),
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildDetailItem(
+                    'Destinataire',
+                    destinataire,
+                    Icons.person_outline,
+                  ),
+                  _buildDetailItem(
+                    'Montant',
+                    '$montant FCFA',
+                    Icons.payments_outlined,
+                  ),
+                  _buildDetailItem(
+                    'Date',
+                    date != null ? DateFormat('dd/MM/yyyy').format(date) : 'Date invalide',
+                    Icons.calendar_today_outlined,
+                  ),
+                  _buildDetailItem(
+                    'Heure',
+                    '$heure:$minute',
+                    Icons.access_time,
+                  ),
+                  _buildDetailItem(
+                    'Type',
+                    planification.type ?? 'Non défini',
+                    Icons.repeat,
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Get.to(
+                        () => TransfertPlanifiePage(
+                          //planification: planification,
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF001B5E),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.edit_outlined, color: Colors.white),
+                    label: const Text(
+                      'Modifier le transfert',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Confirmer la suppression'),
+                          content: const Text(
+                            'Êtes-vous sûr de vouloir supprimer ce transfert planifié ?'
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Annuler'),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                try {
+                                 // await planificationController.deletePlanification(planification.id!);
+                                  Navigator.pop(context); // Fermer la boîte de dialogue
+                                  Navigator.pop(context); // Fermer la feuille de détails
+                                  Get.snackbar(
+                                    'Succès',
+                                    'Transfert planifié supprimé avec succès',
+                                    backgroundColor: Colors.green,
+                                    colorText: Colors.white,
+                                  );
+                                } catch (e) {
+                                  Get.snackbar(
+                                    'Erreur',
+                                    'Erreur lors de la suppression: $e',
+                                    backgroundColor: Colors.red,
+                                    colorText: Colors.white,
+                                  );
+                                }
+                              },
+                              child: const Text(
+                                'Supprimer',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    label: const Text(
+                      'Supprimer le transfert',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Center(
-        child: Text('Détails du transfert : ${planification.type ?? 'Type inconnu'}'),
+    );
+  }
+
+  Widget _buildDetailItem(String label, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF001B5E), size: 24),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Color(0xFF001B5E),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -10,5 +10,6 @@ class TransactionBinding implements Bindings {
     // Injecter TransactionController
     Get.lazyPut(() => TransactionController());
     Get.put<TransactionController>(TransactionController());
+  
   }
 }

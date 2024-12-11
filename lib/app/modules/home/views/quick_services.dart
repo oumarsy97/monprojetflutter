@@ -6,6 +6,7 @@ import 'planifie/transerfert_planifie.dart';
 import 'transfert/contacts_list.dart';
 import 'transfert/transfert_multiple.dart';
 import 'transfert/transfert_planifie.dart';
+import 'transfert/transfert_simple.dart';
 
 class QuickServices extends StatelessWidget {
   QuickServices({Key? key}) : super(key: key);
@@ -54,7 +55,7 @@ class QuickServices extends StatelessWidget {
   void _handleAction(String action) {
     switch (action) {
       case 'transfer':
-        _showContactsList();
+       Get.to(() => const SendMoneyPage());
         break;
       case 'multiple_transfer':
         Get.to(() => const MultipleTransferPage());

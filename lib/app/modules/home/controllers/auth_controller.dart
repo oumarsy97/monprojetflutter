@@ -1,15 +1,13 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../services/auth_service.dart';
-import '../../../../services/transaction_service.dart';
 import '../../../data/models/Compte.dart';
-import 'inscription_google.dart';
+import '../../../data/models/contact.dart';
 
 class AuthController extends GetxController  {
   
   final AuthService _authService = Get.find<AuthService>();
+    final FirebaseAuth _auth = FirebaseAuth.instance;
   //final TransactionService _transactionService = Get.find<TransactionService>();
 
   // État de l'utilisateur
@@ -30,6 +28,12 @@ class AuthController extends GetxController  {
     super.onInit();
     _loadCurrentUser();
   }
+
+  Contact? addContact(Contact contact) {
+    final compte = _authService.creerContact(contact);
+ 
+  }
+  
 
   Future<void> _loadCurrentUser() async {
     try {
@@ -84,6 +88,25 @@ Future<bool> loginWithGoogle() async {
     return false;
   }
 }
+
+Future<bool> loginWithFacebook() async {
+    try {
+      Compte? compte = await _authService.loginWithFacebook();
+      
+      if (compte != null) {
+        currentUser.value = compte;
+        await refreshUserData();
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      // Gérer les erreurs de connexion
+      print('Erreur de connexion Facebook: $e');
+      return false;
+    }
+  }
+
 
 Future<bool> connexionParTelephone(String telephone) async {
   try {
@@ -150,7 +173,7 @@ Future<bool> verifierOTP(String telephone, String otp) async {
       isLoading.value = true;
 
       transaction['reference'] = DateTime.now().millisecondsSinceEpoch.toString();
-    //  await _transactionService.addTransaction(transaction);
+     // await _authService.addTransaction(transaction);
 
       await refreshUserData();
     } catch (e) {
@@ -219,48 +242,7 @@ Future<bool> verifierOTP(String telephone, String otp) async {
 
   List<Map<String, dynamic>> get userTransactions => _transactions.toList();
 
- Future<bool> loginWithFacebook({
-    required String email, 
-    required String facebookId,
-    String? nom, 
-    String? prenom
-  }) async {
-    try {
-      // Vérifier si un utilisateur avec cet ID Facebook existe
-      final user = await _authService.findByFacebookId(facebookId);
-      
-      if (user != null) {
-        // Connecter l'utilisateur existant
-        currentUser.value = user;
-        return true;
-      }
-
-      // Si l'utilisateur n'existe pas, créer un nouveau compte
-      final nouveauCompte = Compte(
-        email: email,
-        type: TypeCompte.CLIENT, // Type par défaut
-        telephone: '', // À compléter plus tard si nécessaire
-        prenom: prenom,
-        nom: nom,
-      //   facebookId: facebookId,
-        password: '', // Pas de mot de passe pour la connexion Facebook
-      );
-
-      // Créer le compte
-      Compte? success = await _authService.creerCompte(nouveauCompte);
-      
-      if (success!=null) {
-        // Connecter le nouvel utilisateur
-        currentUser.value = nouveauCompte;
-        return true;
-      }
-
-      return false;
-    } catch (e) {
-      // Gérer les erreurs de connexion
-      print('Erreur de connexion Facebook: $e');
-      return false;
-    }
-  }
+ 
+  
 
 }

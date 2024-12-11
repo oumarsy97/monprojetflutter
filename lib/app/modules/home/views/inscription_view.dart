@@ -1,24 +1,15 @@
-// ignore_for_file: unnecessary_cast
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../data/models/Compte.dart';
 import '../controllers/auth_controller.dart';
 import 'package:flutter/services.dart';
 
-
-
-  // Si vous avez une méthode fromJson(), mettez-la à jour aussi
- 
-
 class InscriptionView extends GetView<AuthController> {
-
   final String? nom;
   final String? prenom;
   final String? email;
 
-
-   // Constructeur avec paramètres optionnels
+  // Constructeur avec paramètres optionnels
   InscriptionView({
     this.nom,
     this.prenom,
@@ -38,16 +29,12 @@ class InscriptionView extends GetView<AuthController> {
   final RxBool _obscureCodeConfirmation = true.obs;
 
   @override
-  void onInit() {
+  Widget build(BuildContext context) {
     // Initialisez les contrôleurs avec les valeurs passées si elles existent
     if (prenom != null) _prenomController.text = prenom!;
     if (nom != null) _nomController.text = nom!;
     if (email != null) _emailController.text = email!;
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    // Le reste du code build reste identique jusqu'au _buildForm
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -193,20 +180,22 @@ class InscriptionView extends GetView<AuthController> {
               const SizedBox(height: 16),
               _buildFormField(
                 controller: _prenomController,
-                labelText: 'Prénom (optionnel)',
+                labelText: 'Prénom',
                 hintText: 'Entrez votre prénom',
                 context: context,
                 icon: Icons.person_outline,
                 isRequired: false,
+                isPrefilledField: prenom != null,
               ),
               const SizedBox(height: 16),
               _buildFormField(
                 controller: _nomController,
-                labelText: 'Nom (optionnel)',
+                labelText: 'Nom',
                 hintText: 'Entrez votre nom',
                 context: context,
                 icon: Icons.person,
                 isRequired: false,
+                isPrefilledField: nom != null,
               ),
               const SizedBox(height: 16),
               Obx(() => _buildFormField(
@@ -235,11 +224,12 @@ class InscriptionView extends GetView<AuthController> {
               const SizedBox(height: 16),
               _buildFormField(
                 controller: _emailController,
-                labelText: 'Email (optionnel)',
+                labelText: 'Email',
                 hintText: 'Entrez votre email',
                 context: context,
                 icon: Icons.email_outlined,
                 isRequired: false,
+                isPrefilledField: email != null,
               ),
               const SizedBox(height: 24),
               _buildInscriptionButton(context),
@@ -260,13 +250,15 @@ class InscriptionView extends GetView<AuthController> {
     bool? showPassword,
     VoidCallback? onTogglePassword,
     required bool isRequired,
+    bool isPrefilledField = false,
   }) {
     return TextFormField(
       controller: controller,
+      readOnly: isPrefilledField,
       obscureText: isPassword ? (showPassword ?? true) : false,
       decoration: InputDecoration(
         labelText: labelText,
-        hintText: hintText,
+        hintText: isPrefilledField ? 'Champ pré-rempli' : hintText,
         prefixIcon: Icon(icon, color: Theme.of(context).primaryColor),
         suffixIcon: isPassword
             ? IconButton(
@@ -276,9 +268,13 @@ class InscriptionView extends GetView<AuthController> {
                 ),
                 onPressed: onTogglePassword,
               )
-            : null,
+            : isPrefilledField 
+                ? Icon(Icons.lock, color: Theme.of(context).primaryColor.withOpacity(0.7))
+                : null,
         labelStyle: TextStyle(
-          color: Theme.of(context).primaryColor,
+          color: isPrefilledField 
+            ? Colors.grey 
+            : Theme.of(context).primaryColor,
           fontWeight: FontWeight.w500,
         ),
         border: OutlineInputBorder(
@@ -292,14 +288,18 @@ class InscriptionView extends GetView<AuthController> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
-            color: Theme.of(context).primaryColor,
+            color: isPrefilledField 
+              ? Colors.grey.shade300 
+              : Theme.of(context).primaryColor,
             width: 2,
           ),
         ),
         filled: true,
-        fillColor: Colors.grey.shade50,
+        fillColor: isPrefilledField ? Colors.grey.shade200 : Colors.grey.shade50,
       ),
       validator: (value) {
+        if (isPrefilledField) return null;
+        
         if (isRequired && (value == null || value.isEmpty)) {
           return 'Ce champ est requis';
         }
@@ -325,64 +325,65 @@ class InscriptionView extends GetView<AuthController> {
     );
   }
 
- Widget _buildInscriptionButton(BuildContext context) {
-  return ElevatedButton(
-    onPressed: () async {
-      if (_formKey.currentState!.validate()) {
-        try {
-          final nouveauCompte = Compte(
-            email: _emailController.text.isEmpty ? null : _emailController.text,
-            password: _codeController.text,
-            type: TypeCompte.CLIENT,
-            telephone: _telephoneController.text,
-            prenom: _prenomController.text.isEmpty ? null : _prenomController.text,
-            nom: _nomController.text.isEmpty ? null : _nomController.text,
-          );
+  Widget _buildInscriptionButton(BuildContext context) {
+    return ElevatedButton(
+      onPressed: () async {
+        if (_formKey.currentState!.validate()) {
+          try {
+            final nouveauCompte = Compte(
+              email: _emailController.text.isEmpty ? null : _emailController.text,
+              password: _codeController.text,
+              type: TypeCompte.CLIENT,
+              telephone: _telephoneController.text,
+              prenom: _prenomController.text.isEmpty ? null : _prenomController.text,
+              nom: _nomController.text.isEmpty ? null : _nomController.text,
+            );
 
-          final success = await controller.inscription(nouveauCompte);
-          
-          if (success) {
-            Get.offAllNamed('/home');
+            final success = await controller.inscription(nouveauCompte);
+            
+            if (success) {
+              Get.offAllNamed('/home');
+            }
+          } catch (e) {
+            Get.snackbar(
+              'Erreur',
+              'Erreur lors de l\'inscription: ${e.toString()}',
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: Colors.red,
+              colorText: Colors.white,
+              borderRadius: 12,
+              margin: const EdgeInsets.all(16),
+              icon: const Icon(Icons.error_outline, color: Colors.white),
+            );
           }
-        } catch (e) {
-          Get.snackbar(
-            'Erreur',
-            'Erreur lors de l\'inscription: ${e.toString()}',
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: Colors.red,
-            colorText: Colors.white,
-            borderRadius: 12,
-            margin: const EdgeInsets.all(16),
-            icon: const Icon(Icons.error_outline, color: Colors.white),
-          );
         }
-      }
-    },
-    style: ElevatedButton.styleFrom(
-      backgroundColor: Theme.of(context).primaryColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      elevation: 3,
-    ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
-        Icon(Icons.how_to_reg, color: Colors.white),
-        SizedBox(width: 8),
-        Text(
-          'S\'inscrire',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Theme.of(context).primaryColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
-      ],
-    ),
-  );
-}
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        elevation: 3,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(Icons.how_to_reg, color: Colors.white),
+          SizedBox(width: 8),
+          Text(
+            'S\'inscrire',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLoginLink() {
     return TweenAnimationBuilder(
       tween: Tween<double>(begin: 0, end: 1),

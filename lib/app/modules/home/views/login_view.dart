@@ -82,6 +82,36 @@ class LoginView extends GetView<AuthController> {
     }
   }
 
+  void _handleFacebookLogin() async {
+    try {
+      _isLoading.value = true;
+      _error.value = '';
+      
+      bool success = await controller.loginWithFacebook();
+      
+      if (success) {
+        Object role = controller.currentUser.value?.type ?? '';
+        role == TypeCompte.DISTRIBUTEUR ? Get.offAllNamed('/distributeur') : Get.offAllNamed('/home');
+      } else {
+        throw 'Échec de la connexion avec Google';
+      } 
+    } catch (e) {
+      _error.value = e.toString();
+      Get.snackbar(
+        'Erreur',
+        'Échec de connexion Facebook: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        borderRadius: 12,
+        margin: const EdgeInsets.all(16),
+        icon: const Icon(Icons.error_outline, color: Colors.white),
+      );
+    } finally {
+      _isLoading.value = false;
+    }
+  }
+
   void _handlePhoneLogin() async {
   String phoneNumber = ''; // Déclaration de la variable ici
   // Logique pour la connexion par téléphone
@@ -136,6 +166,7 @@ class LoginView extends GetView<AuthController> {
   }
 }
 
+ // Méthodes de style mises à jour
   Widget _buildLogo() {
     return Column(
       children: [
@@ -153,7 +184,7 @@ class LoginView extends GetView<AuthController> {
           style: GoogleFonts.poppins(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: Colors.white, // Bleu foncé pour le titre
           ),
         ),
         const SizedBox(height: 8),
@@ -161,7 +192,7 @@ class LoginView extends GetView<AuthController> {
           'Connectez-vous à votre compte',
           style: GoogleFonts.poppins(
             fontSize: 16,
-            color: Colors.white70,
+            color: Colors.blue[700], // Bleu moyen pour le sous-titre
           ),
         ),
       ],
@@ -223,6 +254,7 @@ class LoginView extends GetView<AuthController> {
     );
   }
 
+ 
   InputDecoration _inputDecoration({
     required String label,
     required IconData icon,
@@ -230,75 +262,116 @@ class LoginView extends GetView<AuthController> {
   }) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, color: Colors.white),
+      prefixIcon: Icon(icon, color: const Color.fromARGB(220, 255, 255, 255)),
       suffixIcon: suffixIcon,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white),
+        borderSide: BorderSide(color: Colors.white),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white),
+        borderSide: BorderSide(color: Colors.white),
       ),
-      labelStyle: GoogleFonts.poppins(color: Colors.white),
-      errorStyle: const TextStyle(color: Colors.white70),
+      labelStyle: GoogleFonts.poppins(color: Colors.blue[800]),
+      errorStyle: TextStyle(color: Colors.red[300]),
+    );
+  }
+
+  Widget _buildButtons(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 24),
+        Obx(() => ElevatedButton(
+          onPressed: _isLoading.value ? null : _handleLogin,
+          style: ElevatedButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            backgroundColor: const Color.fromARGB(255, 4, 125, 223), // Bouton de connexion en bleu
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+          child: _isLoading.value
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(
+                  'Se connecter',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+        )),
+        _buildDivider(),
+        _buildGoogleButton(),
+        _buildPhoneButton(),
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 16),
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.facebook, color: Colors.white),
+            label: Text(
+              'Continuer avec Facebook',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[900], // Bouton Facebook en bleu foncé
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: _handleFacebookLogin,
+          ),
+        ),
+        // Reste des boutons avec des styles bleus
+        TextButton(
+          onPressed: () => Get.toNamed('/reset-password'),
+          child: Text(
+            'Mot de passe oublié?',
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Get.toNamed('/inscription'),
+          child: RichText(
+            text: TextSpan(
+              text: "Vous n'avez pas de compte? ",
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+              children: [
+                TextSpan(
+                  text: "S'inscrire",
+                  style: GoogleFonts.poppins(
+                    color: const Color.fromARGB(255, 114, 180, 228),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
 
 
-
-  // Nouvelle méthode pour la connexion Facebook
-  void _handleFacebookLogin() async {
-    try {
-      _isLoading.value = true;
-      _error.value = '';
-      
-      // Déclencher le processus de connexion Facebook
-      final LoginResult result = await FacebookAuth.instance.login(
-        permissions: ['email', 'public_profile'],
-      );
-
-      if (result.status == LoginStatus.success) {
-        // Récupérer les informations de l'utilisateur
-        final AccessToken accessToken = result.accessToken!;
-        final userData = await FacebookAuth.instance.getUserData();
-
-        // Essayer de se connecter avec les informations Facebook
-        bool success = await controller.loginWithFacebook(
-          email: userData['email'],
-          facebookId: userData['id'],
-          nom: userData['last_name'],
-          prenom: userData['first_name']
-        );
-        
-        if (success) {
-          Object role = controller.currentUser.value?.type ?? '';
-          role == TypeCompte.DISTRIBUTEUR 
-            ? Get.offAllNamed('/distributeur') 
-            : Get.offAllNamed('/home');
-        } else {
-          throw 'Échec de la connexion Facebook';
-        }
-      } else {
-        throw 'Connexion Facebook annulée';
-      }
-    } catch (e) {
-      _error.value = e.toString();
-      Get.snackbar(
-        'Erreur',
-        'Échec de connexion Facebook: ${e.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        borderRadius: 12,
-        margin: const EdgeInsets.all(16),
-        icon: const Icon(Icons.error_outline, color: Colors.white),
-      );
-    } finally {
-      _isLoading.value = false;
-    }
-  }
   Widget _buildLoginForm() {
     return Form(
       key: _formKey,
@@ -375,102 +448,11 @@ class LoginView extends GetView<AuthController> {
     );
   }
 
-  Widget _buildButtons(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: 24),
-        Obx(() => ElevatedButton(
-          onPressed: _isLoading.value ? null : _handleLogin,
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            backgroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          child: _isLoading.value
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.blue,
-                  ),
-                )
-              : Text(
-                  'Se connecter',
-                  style: GoogleFonts.poppins(
-                    color: Theme.of(context).primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-        )),
-        _buildDivider(),
-        _buildGoogleButton(),
-        _buildPhoneButton(), // Ajout du bouton de connexion par téléphone
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 16),
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.facebook, color: Colors.white),
-            label: Text(
-              'Continuer avec Facebook',
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade800,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            onPressed: _handleFacebookLogin,
-          ),
-        ),
-        TextButton(
-          onPressed: () => Get.toNamed('/reset-password'),
-          child: Text(
-            'Mot de passe oublié?',
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: () => Get.toNamed('/inscription'),
-          child: RichText(
-            text: TextSpan(
-              text: "Vous n'avez pas de compte? ",
-              style: GoogleFonts.poppins(
-                color: Colors.white70,
-                fontWeight: FontWeight.w500,
-              ),
-              children: [
-                TextSpan(
-                  text: "S'inscrire",
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
-  @override
+   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).primaryColor,
+      backgroundColor: const Color.fromARGB(255, 3, 79, 114), // Bleu ciel clair
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),

@@ -1,3 +1,5 @@
+import 'contact.dart';
+
 enum Statut { ACTIF, INACTIF, BLOQUE }
 
 enum TypeCompte { CLIENT, ADMIN, AGENT, DISTRIBUTEUR }
@@ -14,7 +16,7 @@ class Compte {
   String? prenom;
   String? nom;
   double? plafond;
-
+ List<Contact>? contactsFavoris;
   // Constructeur
   Compte({
     this.id,
@@ -27,7 +29,7 @@ class Compte {
     this.limiteMensuelle = 1000000,
     this.plafond = 100000,
     required this.prenom,
-    required this.nom,
+    required this.nom, List<Contact>? contactsFavoris,
   });
 
   // Conversion depuis Map (Firestore)
@@ -44,6 +46,10 @@ class Compte {
       nom: map['nom'],
       prenom: map['prenom'],
       plafond: (map['plafond'] ?? 100000).toDouble(),
+      contactsFavoris: map['contactsFavoris'] != null
+          ? List<Contact>.from(
+              map['contactsFavoris'].map((x) => Contact.fromMap(x)))
+          : null,
     );
   }
 
@@ -60,7 +66,8 @@ class Compte {
       'limiteMensuelle': limiteMensuelle,
       'nom': nom,
       'prenom': prenom,
-      'plafond': plafond
+      'plafond': plafond,
+      'contactsFavoris': contactsFavoris?.map((x) => x.toMap()).toList(),
     };
   }
 
@@ -76,7 +83,9 @@ class Compte {
     double? montant,
     Statut? statut,
     double? limiteMensuelle,
-    double? plafond
+    double? plafond,
+    List<Contact>? contactsFavoris,
+    
   }) {
     return Compte(
       id: id ?? this.id,
@@ -89,7 +98,9 @@ class Compte {
       montant: montant ?? this.montant,
       statut: statut ?? this.statut,
       limiteMensuelle: limiteMensuelle ?? this.limiteMensuelle,
-      plafond: plafond ?? this.plafond
+      plafond: plafond ?? this.plafond,
+      contactsFavoris: contactsFavoris ?? this.contactsFavoris,
+
     );
   }
 }

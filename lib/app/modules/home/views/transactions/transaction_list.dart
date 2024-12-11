@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/transaction_controller.dart';
@@ -46,9 +48,9 @@ class TransactionView extends GetView<TransactionController> {
       color = Colors.green;
       icon = Icons.call_received;
     } else {
-      sign = '+';
+      sign = '-';
       displayType = transaction.type;
-      color = Colors.blue;
+      color = Colors.red;
       icon = Icons.swap_horiz;
     }
 
@@ -412,7 +414,7 @@ class DetailTransactionPage extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (transaction.status.toLowerCase() == 'effectue')
+                  if (transaction.status.toLowerCase() == 'effectuee' )
                     Padding(
                       padding: const EdgeInsets.only(top: 24),
                       child: SizedBox(

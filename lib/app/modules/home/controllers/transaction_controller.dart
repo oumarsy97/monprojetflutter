@@ -325,4 +325,19 @@ class TransactionController extends GetxController {
       isLoading.value = false;
     }
   }
+
+  Future<void> addTransaction( Map<String, dynamic> transaction) async {
+    try {
+      isLoading.value = true;
+
+      transaction['reference'] = DateTime.now().millisecondsSinceEpoch.toString();
+      await _transactionService.addTransaction(transaction);
+      await loadTransactions();
+
+      isLoading.value = false;    } catch (e) {
+      error.value = 'Erreur lors de l’ajout de la transaction: $e';
+    } finally {
+      isLoading.value = false;
+    }
+  }
 }

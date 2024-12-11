@@ -110,6 +110,7 @@ Future<void> addTransactionprogrammes(Map<String, dynamic> transaction) async {
   Future<void> addTransaction(Map<String, dynamic> transaction) async {
     try {
       transaction['reference'] = DateTime.now().millisecondsSinceEpoch.toString();
+      print("transactionss: $transaction");
       // Vérifier que les champs requis sont présents
       if (
           !transaction.containsKey('destinataire') ||
